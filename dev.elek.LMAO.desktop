@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=LMAO
+Comment=Lightweight Multimedia & Audio Opener
+Exec=lmao %F
+Icon=dev.elek.LMAO
+Terminal=false
+Type=Application
+Categories=AudioVideo;Video;Player;
+MimeType=video/mp4;video/x-matroska;video/avi;video/webm;video/quicktime;video/x-flv;video/x-ms-wmv;video/mp2t;video/x-msvideo;video/ogg;video/3gpp;video/3gpp2;video/dv;video/fli;video/mpeg;video/vnd.mpegurl;video/vnd.rn-realvideo;video/x-mpeg2;video/x-ms-asf;video/x-ms-wmx;application/x-matroska;audio/mpeg;audio/flac;audio/ogg;audio/opus;audio/wav;audio/aac;audio/mp4;audio/m4a;audio/webm;audio/x-ms-wma;audio/x-musepack;audio/x-pn-realaudio;audio/vnd.rn-realaudio;audio/mpegurl;audio/x-mpegurl;audio/x-scpls;audio/x-speex;audio/x-wav;audio/x-flac;audio/x-vorbis+ogg;audio/x-opus+ogg;

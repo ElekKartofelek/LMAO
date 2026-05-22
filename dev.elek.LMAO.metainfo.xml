@@ -1,0 +1,16 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<component type="desktop-application">
+  <id>dev.elek.LMAO</id>
+  <name>LMAO</name>
+  <summary>Lightweight Multimedia & Audio Opener</summary>
+  <metadata_license>MIT</metadata_license>
+  <project_license>GPL-2.0-or-later</project_license>
+  <description>
+    <p>A lightweight video and audio player built with Qt, libmpv and FFmpeg.</p>
+  </description>
+  <launchable type="desktop-id">dev.elek.LMAO.desktop</launchable>
+  <content_rating type="oars-1.1"/>
+  <releases>
+    <release version="1.0.0" date="2026-05-25"/>
+  </releases>
+</component>

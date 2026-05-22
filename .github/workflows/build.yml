@@ -1,0 +1,186 @@
+name: Build
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+
+jobs:
+# --- Linux build ---
+  linux:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y cmake g++ \
+            qt6-base-dev qt6-base-dev-tools libgl-dev \
+            libmpv-dev libdbus-1-dev \
+            libfuse2 file
+
+      - name: Build
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release -DCMAKE_INSTALL_PREFIX=/usr
+          cmake --build build -j$(nproc)
+
+      - name: Create AppDir
+        run: |
+          # Install into AppDir structure
+          DESTDIR=$PWD/AppDir cmake --install build
+
+          # Create .desktop file in AppDir root
+          cp dev.elek.LMAO.desktop AppDir/
+
+          # Create icon in AppDir root
+          cp icons/hicolor/256x256/apps/dev.elek.LMAO.png AppDir/
+
+          # Create AppRun script
+          cat > AppDir/AppRun << 'EOF'
+          #!/bin/bash
+          HERE="$(dirname "$(readlink -f "$0")")"
+          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
+          export QT_PLUGIN_PATH="${HERE}/usr/lib/qt6/plugins"
+          exec "${HERE}/usr/bin/lmao" "$@"
+          EOF
+          chmod +x AppDir/AppRun
+
+      - name: Download linuxdeploy
+        run: |
+          wget -q https://github.com/linuxdeploy/linuxdeploy/releases/download/continuous/linuxdeploy-x86_64.AppImage
+          wget -q https://github.com/linuxdeploy/linuxdeploy-plugin-qt/releases/download/continuous/linuxdeploy-plugin-qt-x86_64.AppImage
+          chmod +x linuxdeploy*.AppImage
+
+      - name: Build AppImage
+        run: |
+          export QMAKE=$(which qmake6)
+          export LD_LIBRARY_PATH=/usr/lib/x86_64-linux-gnu:$LD_LIBRARY_PATH
+          ./linuxdeploy-x86_64.AppImage \
+            --appdir AppDir \
+            --desktop-file dev.elek.LMAO.desktop \
+            --icon-file icons/hicolor/256x256/apps/dev.elek.LMAO.png \
+            --plugin qt \
+            --output appimage
+          # Rename to consistent name (appimagetool may already use this name)
+          ls -la *.AppImage
+          mv -f LMAO*.AppImage LMAO-x86_64.AppImage || true
+
+      - name: Package (traditional)
+        run: |
+          mkdir -p package/lmao-linux
+          cp build/lmao package/lmao-linux/
+          cp LICENSE package/lmao-linux/
+          cp README.md package/lmao-linux/
+          cp dev.elek.LMAO.desktop package/lmao-linux/
+          cp dev.elek.LMAO.metainfo.xml package/lmao-linux/
+          cp -r icons/hicolor package/lmao-linux/hicolor
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: lmao-linux-appimage
+          path: LMAO-x86_64.AppImage
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: lmao-linux-x86_64
+          path: package/lmao-linux/
+
+  # --- Windows build ---
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v5
+
+      - name: Install Qt
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.0'
+          host: windows
+          target: desktop
+          arch: win64_mingw
+          tools: 'tools_mingw1310'
+
+      - name: Download mpv SDK
+        shell: bash
+        run: |
+          curl -L -o mpv-dev.7z "https://sourceforge.net/projects/mpv-player-windows/files/libmpv/mpv-dev-x86_64-20260517-git-059bc70.7z/download"
+          7z x mpv-dev.7z -othirdparty/mpv
+          # Fix directory structure if needed
+          ls thirdparty/mpv/
+          # Ensure include/mpv/ exists
+          if [ ! -d "thirdparty/mpv/include/mpv" ]; then
+            mkdir -p thirdparty/mpv/include/mpv
+            mv thirdparty/mpv/include/*.h thirdparty/mpv/include/mpv/ 2>/dev/null || true
+          fi
+
+      - name: Build
+        shell: cmd
+        run: |
+          set PATH=%IQTA_TOOLS%\mingw1310_64\bin;%Qt6_DIR%\bin;%PATH%
+          mkdir build
+          cd build
+          cmake .. -G "MinGW Makefiles" -DCMAKE_BUILD_TYPE=Release -DCMAKE_PREFIX_PATH="%Qt6_DIR%"
+          mingw32-make -j%NUMBER_OF_PROCESSORS%
+
+      - name: Package
+        shell: cmd
+        run: |
+          set PATH=%IQTA_TOOLS%\mingw1310_64\bin;%Qt6_DIR%\bin;%PATH%
+          mkdir package\LMAO
+          copy build\lmao.exe package\LMAO\
+          copy thirdparty\mpv\libmpv-2.dll package\LMAO\
+          copy LICENSE package\LMAO\
+          copy README.md package\LMAO\
+          cd package\LMAO
+          windeployqt lmao.exe
+          :: Remove unnecessary Qt stuff
+          rmdir /s /q translations 2>nul
+          rmdir /s /q tls 2>nul
+          rmdir /s /q networkinformation 2>nul
+          rmdir /s /q generic 2>nul
+          del opengl32sw.dll 2>nul
+          del D3Dcompiler_47.dll 2>nul
+
+      - uses: actions/upload-artifact@v5
+        with:
+          name: lmao-windows-x86_64
+          path: package/LMAO/
+
+  # --- Create release (only on tags) ---
+  release:
+    needs: [linux, windows]
+    runs-on: ubuntu-latest
+    if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/download-artifact@v5
+        with:
+          name: lmao-linux-appimage
+          path: artifacts/
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: lmao-linux-x86_64
+          path: artifacts/lmao-linux/
+
+      - uses: actions/download-artifact@v5
+        with:
+          name: lmao-windows-x86_64
+          path: artifacts/lmao-windows/
+
+      - name: Package
+        run: |
+          cd artifacts
+          tar czf lmao-linux-x86_64.tar.gz lmao-linux/
+          zip -r lmao-windows-x86_64.zip lmao-windows/
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            artifacts/LMAO-x86_64.AppImage
+            artifacts/lmao-linux-x86_64.tar.gz
+            artifacts/lmao-windows-x86_64.zip
+          generate_release_notes: true
