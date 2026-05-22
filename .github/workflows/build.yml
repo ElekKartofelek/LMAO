@@ -185,6 +185,11 @@ jobs:
         with:
           name: lmao-linux-x86_64
           path: artifacts/lmao-linux/
+      
+      - uses: actions/download-artifact@v5
+        with:
+          name: lmao-windows-x86_64
+          path: artifacts/lmao-windows/
 
       - uses: actions/download-artifact@v5
         with:
@@ -193,10 +198,16 @@ jobs:
 
       - name: Package
         run: |
-          cd artifacts
-          tar czf lmao-linux-x86_64.tar.gz lmao-linux/
-          zip -r lmao-windows-x86_64.zip lmao-windows/
-          zip -r lmao-windows-x86_64-full.zip lmao-windows-full/
+          # Linux tar
+          tar czf artifacts/lmao-linux-x86_64.tar.gz -C artifacts lmao-linux
+          # Windows zip
+          cd artifacts/lmao-windows
+          zip -r ../lmao-windows-x86_64.zip .
+          cd ..
+          # Windows full zip
+          cd lmao-windows-full
+          zip -r ../lmao-windows-x86_64-full.zip .
+          cd ../..
 
       - name: Create Release
         uses: softprops/action-gh-release@v2
