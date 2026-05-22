@@ -23,7 +23,7 @@ Linux and Windows are both supported. MacOS will be looked into in the near futu
 
 **Fedora (COPR):**
 ```bash
-sudo dnf copr enable ElekKartofelek/LMAO
+sudo dnf copr enable elekkartofelek/LMAO
 sudo dnf install lmao
 ```
 
