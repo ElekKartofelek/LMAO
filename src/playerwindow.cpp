@@ -381,6 +381,8 @@ void PlayerWindow::connectSignals() {
 
     // Volume display
     connect(controller, &MpvController::volumeChanged, this, [this](int vol) {
+        if (seeking) return;
+
         volumeSlider->setValue(vol);
         muteBtn->setText(vol == 0 ? "🔇" : "🔊");
         showNotification(QString("Volume: %1%").arg(vol));
@@ -399,13 +401,13 @@ void PlayerWindow::connectSignals() {
 
     // Seek bar
     connect(seekBar, &QSlider::sliderPressed, this, [this]() { 
+        seeking = true;
+
 		volumeBeforeSeek = controller->volume();
         controller->setVolume(0);
 
         pauseStateBeforeSeek = controller->isPaused();
         controller->pause();
-
-        seeking = true;
     });
 
     connect(seekBar, &QSlider::sliderReleased, this, [this]() {
