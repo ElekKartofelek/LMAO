@@ -84,6 +84,7 @@ private:
     bool pauseStateBeforeClick = false;
     bool pauseStateBeforeSeek = false;
     int lastVolume = 100;
+    int volumeBeforeSeek = 100;
 
     // --- Setup ---
     void buildLayout();

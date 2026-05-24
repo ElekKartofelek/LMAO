@@ -399,17 +399,22 @@ void PlayerWindow::connectSignals() {
 
     // Seek bar
     connect(seekBar, &QSlider::sliderPressed, this, [this]() { 
+		volumeBeforeSeek = controller->volume();
         controller->setVolume(0);
+
         pauseStateBeforeSeek = controller->isPaused();
         controller->pause();
+
         seeking = true;
     });
 
     connect(seekBar, &QSlider::sliderReleased, this, [this]() {
-        controller->setVolume(lastVolume > 0 ? lastVolume : 100);
+        controller->setVolume(volumeBeforeSeek);
+
         if (!pauseStateBeforeSeek) {
             controller->play();
         }
+
         controller->seekTo(seekBar->value() / 10.0);
         seeking = false;
     });
