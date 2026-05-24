@@ -1120,7 +1120,14 @@ void PlayerWindow::keyPressEvent(QKeyEvent *event) {
     hideTimer->start();
 
     switch (event->key()) {
-    case Qt::Key_Space:  controller->togglePause(); break;
+    case Qt::Key_Space: { 
+        if (!seeking)
+            controller->togglePause(); 
+        else
+            pauseStateBeforeSeek = !pauseStateBeforeSeek;
+       break; 
+
+    };
     case Qt::Key_Right:  controller->seekRelative(5); showNotification("Skip 5s ►"); break;
     case Qt::Key_Left:   controller->seekRelative(-5); showNotification("◄ Skip 5s"); break;
     case Qt::Key_Up:     controller->adjustVolume(5); break;
