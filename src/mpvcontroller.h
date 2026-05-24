@@ -25,6 +25,8 @@ public:
 
     // Playback
     void togglePause();
+    void play();
+    void pause();
     void seekTo(double seconds);
     void seekRelative(double seconds);
     void frameStepForward();

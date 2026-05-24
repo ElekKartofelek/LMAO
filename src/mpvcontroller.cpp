@@ -157,6 +157,16 @@ void MpvController::togglePause() {
     mpv->command({"cycle", "pause"});
 }
 
+void MpvController::play() {
+    if (!hasMedia()) return;
+    mpv->setPropertyBool("pause", false);
+}
+
+void MpvController::pause() {
+    if (!hasMedia()) return;
+    mpv->setPropertyBool("pause", true);
+}
+
 void MpvController::seekTo(double seconds) {
     if (!hasMedia()) return;
     mpv->setPropertyDouble("time-pos", seconds);

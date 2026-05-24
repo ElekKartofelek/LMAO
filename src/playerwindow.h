@@ -82,6 +82,7 @@ private:
     bool seeking = false;
     bool frameStepping = false;
     bool pauseStateBeforeClick = false;
+    bool pauseStateBeforeSeek = false;
     int lastVolume = 100;
 
     // --- Setup ---
