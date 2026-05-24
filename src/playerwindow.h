@@ -7,10 +7,12 @@
 #include <QTimer>
 #include "widgets/customslider.h"
 #include "widgets/glasspanel.h"
+#include "widgets/glassbutton.h"
 
 class MpvWidget;
 class MpvController;
 class QVBoxLayout;
+class QProcess;
 
 class PlayerWindow : public QMainWindow {
     Q_OBJECT
@@ -47,19 +49,31 @@ private:
 
     // --- Controls bar ---
     GlassPanel *controlsBar;
-    QPushButton *playBtn;
+    GlassButton *playBtn;
     CustomSlider *seekBar;
     QLabel *timeLabel;
-    QPushButton *muteBtn;
+    GlassButton *muteBtn;
     CustomSlider *volumeSlider;
-    QPushButton *audioTrackBtn;
-    QPushButton *settingsBtn;
+    GlassButton *audioTrackBtn;
+    GlassButton *editBtn;
+    GlassButton *settingsBtn;
+    GlassButton *cancelEditBtn;
+    GlassButton *exportBtn;
 
     // --- Popups ---
     QWidget *audioPopup = nullptr;
-    QWidget *contextPopup = nullptr;
     QWidget *optionsPopup = nullptr;
+    QWidget *contextPopup = nullptr;
     QWidget *aboutPanel = nullptr;
+    QWidget *keybindsPanel = nullptr;
+
+    // --- Export overlay ---
+    QWidget *exportDimmer = nullptr;
+    GlassPanel *exportOverlay = nullptr;
+    QLabel *exportStatusLabel = nullptr;
+    CustomSlider *exportProgressBar = nullptr;
+    QProcess *exportProcess = nullptr;
+    bool exportWasPaused = false;
 
     // --- Info overlay ---
     GlassPanel *infoOverlay = nullptr;
@@ -76,7 +90,7 @@ private:
     QTimer *hideTimer;
     bool controlsVisible = true;
 
-    // --- State ---
+    // --- Playback state ---
     double currentSpeed = 1.0;
     double cachedDuration = 0.0;
     bool seeking = false;
@@ -84,28 +98,50 @@ private:
     bool pauseStateBeforeClick = false;
     int lastVolume = 100;
 
+    // --- Edit state ---
+    bool editMode = false;
+    int savedClampIn = -1;
+    int savedClampOut = -1;
+    QWidget *editBorder = nullptr;
+
     // --- Setup ---
     void buildLayout();
     void buildControlsBar();
-    void buildMenuItems(QVBoxLayout *layout, QWidget *parent, bool fromContextMenu);
     void connectSignals();
 
-    // --- UI helpers ---
+    // --- Controls ---
     void showControls();
     void hideControls();
     void toggleFullscreen();
+    void updateResponsiveLayout();
+
+    // --- Popups & dialogs ---
     void toggleAudioPopup();
     void toggleOptionsPopup();
+    void showContextPopup(const QPoint &pos);
+    void buildMenuItems(QVBoxLayout *layout, QWidget *parent, bool fromContextMenu);
+    void closePopup(QWidget *&popup, QWidget *btn = nullptr, const QString &tooltip = "");
+    void refreshOptionsPopup();
+    void showAboutDialog();
+    void showKeybindsPanel();
+
+    // --- Edit mode ---
+    void toggleEditMode();
+    void updateEditModeUI();
+    void clampSeekToEditRegion();
+
+    // --- Export ---
+    void exportClip();
+    void cancelExport();
+    void closeExportOverlay();
+
+    // --- Info overlay ---
     void toggleInfoOverlay();
     void updateInfoOverlay();
-    void showAboutDialog();
-    void showContextPopup(const QPoint &pos);
-    void showNotification(const QString &text);
-    void promptOpenFile();
-    void refreshOptionsPopup();
-    void closePopup(QWidget *&popup, QPushButton *btn = nullptr, const QString &tooltip = "");
-    void setPlaybackSpeed(double speed);
 
-    // --- Formatting ---
+    // --- Misc ---
+    void promptOpenFile();
+    void showNotification(const QString &text);
+    void setPlaybackSpeed(double speed);
     static QString formatTime(double seconds, double total = 0);
 };

@@ -252,7 +252,7 @@ int MpvController::volume() const {
 bool MpvController::copyFrameToClipboard() {
     if (!hasMedia()) return false;
 
-    // Try full-resolution screenshot via ffmpeg if available
+    // Try full resolution screenshot via ffmpeg if available
     if (hasFFmpeg()) {
         QString path = currentFilePath();
         double pos = position();

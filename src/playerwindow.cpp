@@ -1,6 +1,7 @@
 #include "playerwindow.h"
 #include "mpvwidget.h"
 #include "mpvcontroller.h"
+#include "theme.h"
 
 #include <QPainter>
 #include <QHBoxLayout>
@@ -23,57 +24,8 @@
 #include <QDesktopServices>
 #include <QUrl>
 #include <QGraphicsOpacityEffect>
+#include <QRegularExpression>
 
-// --- Theme ---
-
-namespace Theme {
-    // Accent
-    const QString accent = "#e2d774";
-    const QColor _c = QColor(accent);
-    const int accentR = _c.red(), accentG = _c.green(), accentB = _c.blue();
-    const QString accentBg = QString("rgba(%1, %2, %3, 0.1)").arg(accentR).arg(accentG).arg(accentB);
-
-    // Text
-    const QString textPrimary = "#ccc";
-    const QString textHover   = "#fff";
-    const QString textDim     = "#555";
-    const QString textDark    = "#000";
-
-    // Backgrounds
-    const QString hoverBg = "rgba(255,255,255,0.1)";
-    const QString barBg   = "rgba(255,255,255,0.15)";
-
-    // Panels
-    const QColor panelBg    = QColor(5, 5, 5, 235);
-    const QColor popupBg    = QColor(5, 5, 5, 235);
-    const int panelRadius   = 14;
-    const int popupRadius   = 14;
-    const int highlight     = 15;
-
-    // Button states
-    const QString btnHoverBg =
-        "qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        "  stop:0 rgba(255, 255, 255, 0.125),"
-        "  stop:0.5 rgba(255, 255, 255, 0.05),"
-        "  stop:1 rgba(255, 255, 255, 0.075))";
-    const QString btnPressBg = QString(
-        "qlineargradient(x1:0, y1:0, x2:0, y2:1,"
-        "  stop:0 rgba(%1, %2, %3, 0.25),"
-        "  stop:0.5 rgba(%1, %2, %3, 0.08),"
-        "  stop:1 rgba(%1, %2, %3, 0.15))")
-        .arg(accentR).arg(accentG).arg(accentB);
-
-    // Layout
-    const int barHeight   = 44;
-    const int barMargin   = 24;
-    const int barMaxWidth = 900;
-    const int barSpacing  = 10;
-    const int popupGap    = 12;
-    const int btnSize     = 32;
-
-    // Timing
-    const int notifDuration = 3000;
-}
 
 // --- Static helpers ---
 
@@ -121,7 +73,7 @@ static void setMenuButtonText(QPushButton *btn, const QString &text) {
 static QFrame* makeSeparator(QWidget *parent) {
     auto *sep = new QFrame(parent);
     sep->setFrameShape(QFrame::HLine);
-    sep->setStyleSheet("background: rgba(255,255,255,0.08); max-height: 1px; border: none; margin: 4px 8px;");
+    sep->setStyleSheet("background: rgba(255,255,255,0.08); max-height: 1px; border: none; margin: 2px 8px;");
     return sep;
 }
 
@@ -243,7 +195,7 @@ void PlayerWindow::buildControlsBar() {
     layout->setSpacing(Theme::barSpacing);
 
     // Play button
-    playBtn = new QPushButton(controlsBar);
+    playBtn = new GlassButton(controlsBar);
     playBtn->setIcon(style()->standardIcon(QStyle::SP_MediaPlay));
     playBtn->setFixedSize(Theme::btnSize, Theme::btnSize);
     playBtn->setCursor(Qt::PointingHandCursor);
@@ -273,7 +225,7 @@ void PlayerWindow::buildControlsBar() {
     auto *volLayout = new QHBoxLayout();
     volLayout->setSpacing(8);
 
-    muteBtn = new QPushButton("🔊", controlsBar);
+    muteBtn = new GlassButton("🔊", controlsBar);
     muteBtn->setFixedSize(Theme::btnSize, Theme::btnSize);
     muteBtn->setCursor(Qt::PointingHandCursor);
     muteBtn->setFocusPolicy(Qt::NoFocus);
@@ -294,8 +246,8 @@ void PlayerWindow::buildControlsBar() {
     volLayout->addWidget(volumeSlider, 0, Qt::AlignVCenter);
     layout->addLayout(volLayout);
 
-    // Audio track button (disabled by default until multi-track file loads)
-    audioTrackBtn = new QPushButton("🎤", controlsBar);
+    // Audio track button (disabled by default until multitrack file loads)
+    audioTrackBtn = new GlassButton("🎤", controlsBar);
     audioTrackBtn->setFixedSize(Theme::btnSize, Theme::btnSize);
     audioTrackBtn->setCursor(Qt::PointingHandCursor);
     audioTrackBtn->setToolTip("Audio track");
@@ -305,13 +257,48 @@ void PlayerWindow::buildControlsBar() {
     audioTrackBtn->setGraphicsEffect(effect);
     layout->addWidget(audioTrackBtn);
 
+    // Edit mode button (scissors)
+    editBtn = new GlassButton("✂️", controlsBar);
+    editBtn->setFixedSize(Theme::btnSize, Theme::btnSize);
+    editBtn->setCursor(Qt::PointingHandCursor);
+    editBtn->setFocusPolicy(Qt::NoFocus);
+    editBtn->setToolTip("Edit mode (E)");
+    if (!controller->hasFFmpeg()) {
+        auto *effect = new QGraphicsOpacityEffect(editBtn);
+        effect->setOpacity(0.3);
+        editBtn->setGraphicsEffect(effect);
+        editBtn->setToolTip("Edit Mode requires FFmpeg");
+    }
+    layout->addWidget(editBtn);
+
     // Settings button
-    settingsBtn = new QPushButton("⚙️", controlsBar);
+    settingsBtn = new GlassButton("⚙️", controlsBar);
     settingsBtn->setFixedSize(Theme::btnSize, Theme::btnSize);
     settingsBtn->setCursor(Qt::PointingHandCursor);
     settingsBtn->setFocusPolicy(Qt::NoFocus);
     settingsBtn->setToolTip("Options (O)");
     layout->addWidget(settingsBtn);
+
+    // Cancel edit button (hidden by default)
+    cancelEditBtn = new GlassButton("Cancel", controlsBar);
+    cancelEditBtn->setCursor(Qt::PointingHandCursor);
+    cancelEditBtn->setTextColor(QColor(Qt::white));
+    cancelEditBtn->setFocusPolicy(Qt::NoFocus);
+    cancelEditBtn->setToolTip("Cancel edit (Esc)");
+    cancelEditBtn->setStyleSheet("font-size: 12px;");
+    cancelEditBtn->hide();
+    layout->addWidget(cancelEditBtn);
+
+    // Export button (hidden by default)
+    exportBtn = new GlassButton("Export", controlsBar);
+    //exportBtn->setRadius(10);
+    exportBtn->setHighlightColor(QColor(Theme::accent));
+    exportBtn->setBackgroundColor(QColor(Theme::accentR, Theme::accentG, Theme::accentB, 2));
+    exportBtn->setHighlightStrength(75);
+    exportBtn->setTextColor(QColor(Theme::accent));
+    exportBtn->setToolTip("Export trimmed clip");
+    exportBtn->hide();
+    layout->addWidget(exportBtn);
 }
 
 // --- Signals ---
@@ -328,6 +315,15 @@ void PlayerWindow::connectSignals() {
         if (!seeking)
             seekBar->setValue(static_cast<int>(pos * 10));
         timeLabel->setText(formatTime(pos, cachedDuration) + " / " + formatTime(cachedDuration, cachedDuration));
+
+        // In edit mode, loop within clamp region
+        if (editMode) {
+            double clampOut = seekBar->clampOut() / 10.0;
+            double clampIn = seekBar->clampIn() / 10.0;
+            if (pos >= clampOut) {
+                controller->seekTo(clampIn);
+            }
+        }
     });
 
     // Pause state
@@ -362,6 +358,15 @@ void PlayerWindow::connectSignals() {
             audioPopup->deleteLater();
             audioPopup = nullptr;
         }
+
+        // Reset edit state
+        if (editMode) {
+            editMode = false;
+            seekBar->setClampsVisible(false);
+        }
+        savedClampIn = -1;
+        savedClampOut = -1;
+        updateEditModeUI();
     });
 
     // Audio track changed
@@ -370,7 +375,7 @@ void PlayerWindow::connectSignals() {
     });
 
     // Mute toggle
-    connect(muteBtn, &QPushButton::clicked, this, [this]() {
+    connect(muteBtn, &GlassButton::clicked, this, [this]() {
         if (controller->volume() > 0) {
             lastVolume = controller->volume();
             controller->setVolume(0);
@@ -387,10 +392,10 @@ void PlayerWindow::connectSignals() {
     });
 
     // Play button
-    connect(playBtn, &QPushButton::clicked, controller, &MpvController::togglePause);
+    connect(playBtn, &GlassButton::clicked, controller, &MpvController::togglePause);
 
     // Audio track button
-    connect(audioTrackBtn, &QPushButton::clicked, this, &PlayerWindow::toggleAudioPopup);
+    connect(audioTrackBtn, &GlassButton::clicked, this, &PlayerWindow::toggleAudioPopup);
 
     // Volume slider
     connect(volumeSlider, &QSlider::valueChanged, this, [this](int value) {
@@ -400,10 +405,18 @@ void PlayerWindow::connectSignals() {
     // Seek bar
     connect(seekBar, &QSlider::sliderPressed, this, [this]() { seeking = true; });
     connect(seekBar, &QSlider::sliderReleased, this, [this]() {
-        controller->seekTo(seekBar->value() / 10.0);
+        if (editMode) {
+            int clamped = qBound(seekBar->clampIn(), seekBar->value(), seekBar->clampOut());
+            seekBar->setValue(clamped);
+            controller->seekTo(clamped / 10.0);
+        } else {
+            controller->seekTo(seekBar->value() / 10.0);
+        }
         seeking = false;
     });
     connect(seekBar, &QSlider::sliderMoved, this, [this](int value) {
+        if (editMode)
+            value = qBound(seekBar->clampIn(), value, seekBar->clampOut());
         timeLabel->setText(formatTime(value / 10.0, cachedDuration) + " / " + formatTime(cachedDuration, cachedDuration));
         controller->seekTo(value / 10.0);
     });
@@ -416,7 +429,22 @@ void PlayerWindow::connectSignals() {
     });
 
     // Settings button
-    connect(settingsBtn, &QPushButton::clicked, this, &PlayerWindow::toggleOptionsPopup);
+    connect(settingsBtn, &GlassButton::clicked, this, &PlayerWindow::toggleOptionsPopup);
+
+    // Edit mode button
+    connect(editBtn, &GlassButton::clicked, this, &PlayerWindow::toggleEditMode);
+
+    // Cancel edit button
+    connect(cancelEditBtn, &GlassButton::clicked, this, [this]() {
+        if (editMode) toggleEditMode();
+    });
+
+    // Export button
+    connect(exportBtn, &GlassButton::clicked, this, &PlayerWindow::exportClip);
+
+    // Edit mode clamps
+    connect(seekBar, &CustomSlider::clampInChanged, this, [this]() { clampSeekToEditRegion(); });
+    connect(seekBar, &CustomSlider::clampOutChanged, this, [this]() { clampSeekToEditRegion(); });
 }
 
 // --- Public slots ---
@@ -442,7 +470,7 @@ void PlayerWindow::showControls() {
 }
 
 void PlayerWindow::hideControls() {
-    if (seeking || audioPopup || optionsPopup || !controller->isVideoFile())
+    if (seeking || audioPopup || optionsPopup || !controller->isVideoFile() || editMode)
         return;
 
     QPoint mousePos = controlsBar->mapFromGlobal(QCursor::pos());
@@ -559,15 +587,7 @@ void PlayerWindow::toggleAudioPopup() {
     glass->setRadius(Theme::popupRadius);
     glass->setBackgroundColor(Theme::popupBg);
     glass->setHighlightStrength(Theme::highlight);
-    glass->setStyleSheet(QString(
-        "QPushButton {"
-        "  color: %1; background: transparent; border: none;"
-        "  text-align: left; padding: 6px 12px; border-radius: 8px;"
-        "  font-size: 12px;"
-        "}"
-        "QPushButton:hover { background: %2; }"
-        "QPushButton:pressed { color: %3; background: %4; }"
-    ).arg(Theme::textPrimary, Theme::btnHoverBg, Theme::accent, Theme::btnPressBg));
+    glass->setStyleSheet(Theme::popupBtnStyle);
 
     audioPopup = glass;
     audioTrackBtn->setStyleSheet(QString(
@@ -585,18 +605,20 @@ void PlayerWindow::toggleAudioPopup() {
         else if (!track.codec.isEmpty()) label += " [" + track.codec + "]";
 
         auto *btn = new QPushButton(label, glass);
+        btn->setFocusPolicy(Qt::NoFocus);
         btn->setCursor(Qt::PointingHandCursor);
         btn->setProperty("trackId", (qlonglong)track.id);
+        btn->setStyleSheet("text-align: center;");
 
         if (track.id == currentId)
-            btn->setStyleSheet(QString("color: %1; font-weight: bold;").arg(Theme::accent));
+            btn->setStyleSheet(QString("color: %1; font-weight: bold; text-align: center;").arg(Theme::accent));
 
         connect(btn, &QPushButton::clicked, this, [this, id = track.id]() {
             controller->setAudioTrack(id);
             if (audioPopup) {
                 for (auto *b : audioPopup->findChildren<QPushButton *>()) {
                     b->setStyleSheet(b->property("trackId").toLongLong() == id
-                        ? QString("color: %1; font-weight: bold;").arg(Theme::accent) : "");
+                        ? QString("color: %1; font-weight: bold; text-align: center;").arg(Theme::accent) : "text-align: center");
                 }
             }
         });
@@ -605,9 +627,15 @@ void PlayerWindow::toggleAudioPopup() {
 
     audioPopup->adjustSize();
 
-    // Position above controls bar, right-aligned
-    int popupX = controlsBar->x() + controlsBar->width() - audioPopup->width();
+    // Position above controls bar, centered on audio track button
+    QPoint btnCenter = audioTrackBtn->mapTo(this, QPoint(audioTrackBtn->width() / 2, 0));
+    int popupX = btnCenter.x() - audioPopup->width() / 2;
     int popupY = controlsBar->y() - audioPopup->height() - Theme::popupGap;
+
+    // Clamp to controls bar bounds
+    int maxX = controlsBar->x() + controlsBar->width() - audioPopup->width();
+    popupX = qBound(controlsBar->x(), popupX, maxX);
+
     audioPopup->move(popupX, popupY);
     audioPopup->raise();
     audioPopup->show();
@@ -633,7 +661,7 @@ void PlayerWindow::toggleOptionsPopup() {
     glass->setRadius(Theme::popupRadius);
     glass->setBackgroundColor(Theme::popupBg);
     glass->setHighlightStrength(Theme::highlight);
-    glass->setStyleSheet(popupStyleSheet());
+    glass->setStyleSheet(Theme::popupBtnStyle);
 
     optionsPopup = glass;
     settingsBtn->setStyleSheet(QString("color: %1; background: %2; border-radius: 10px;").arg(Theme::accent, Theme::btnPressBg));
@@ -661,7 +689,7 @@ void PlayerWindow::showContextPopup(const QPoint &globalPos) {
     glass->setRadius(Theme::popupRadius);
     glass->setBackgroundColor(Theme::popupBg);
     glass->setHighlightStrength(Theme::highlight);
-    glass->setStyleSheet(popupStyleSheet());
+    glass->setStyleSheet(Theme::popupBtnStyle);
 
     contextPopup = glass;
 
@@ -719,28 +747,26 @@ void PlayerWindow::buildMenuItems(QVBoxLayout *layout, QWidget *parent, bool fro
     auto *speedLabel = new QLabel(QString("Speed: %1x").arg(currentSpeed, 0, 'f', 2), speedRow);
     speedLabel->setStyleSheet(QString("color: %1; font-size: 12px; background: transparent; padding: 0;").arg(Theme::textPrimary));
 
-    auto btnStyle = QString("color: %1; background: %2; border: none; border-radius: 6px; font-size: 11px; text-align: center; padding: 0;")
-        .arg(Theme::textPrimary, Theme::btnHoverBg);
-
-    auto *speedDown  = new QPushButton("−", speedRow);
-    auto *speedReset = new QPushButton("1x", speedRow);
-    auto *speedUp    = new QPushButton("+", speedRow);
+    auto *speedDown  = new GlassButton("-", speedRow);
+    auto *speedReset = new GlassButton("1x", speedRow);
+    auto *speedUp    = new GlassButton("+", speedRow);
     for (auto *b : {speedDown, speedReset, speedUp}) {
-        b->setFixedSize(24, 24);
-        b->setCursor(Qt::PointingHandCursor);
-        b->setFocusPolicy(Qt::NoFocus);
-        b->setStyleSheet(btnStyle);
+        b->setFixedSize(26, 26);
+        b->setRadius(8);
+        b->setBgGlossStrength(5);
+        b->setFontSize(12);
+        b->setTextColor(QColor(Theme::textPrimary));
     }
 
-    auto *speedShortcut = new QLabel("+/−", speedRow);
+    auto *speedShortcut = new QLabel("+/-", speedRow);
     speedShortcut->setStyleSheet(QString("color: %1; background: transparent; padding: 0; font-weight: bold;").arg(Theme::textDim));
 
     auto updateSpeed = [speedLabel, this]() {
         speedLabel->setText(QString("Speed: %1x").arg(currentSpeed, 0, 'f', 2));
     };
-    connect(speedDown,  &QPushButton::clicked, this, [this, updateSpeed]() { setPlaybackSpeed(qMax(0.25, currentSpeed - 0.25)); updateSpeed(); });
-    connect(speedUp,    &QPushButton::clicked, this, [this, updateSpeed]() { setPlaybackSpeed(qMin(4.0, currentSpeed + 0.25)); updateSpeed(); });
-    connect(speedReset, &QPushButton::clicked, this, [this, updateSpeed]() { setPlaybackSpeed(1.0); updateSpeed(); });
+    connect(speedDown,  &GlassButton::clicked, this, [this, updateSpeed]() { setPlaybackSpeed(qMax(0.25, currentSpeed - 0.25)); updateSpeed(); });
+    connect(speedUp,    &GlassButton::clicked, this, [this, updateSpeed]() { setPlaybackSpeed(qMin(4.0, currentSpeed + 0.25)); updateSpeed(); });
+    connect(speedReset, &GlassButton::clicked, this, [this, updateSpeed]() { setPlaybackSpeed(1.0); updateSpeed(); });
 
     speedLayout->addWidget(speedLabel);
     speedLayout->addStretch();
@@ -779,6 +805,11 @@ void PlayerWindow::buildMenuItems(QVBoxLayout *layout, QWidget *parent, bool fro
 
     layout->addWidget(makeSeparator(parent));
 
+    // Keybinds
+    auto *keybindsBtn = makeMenuButton("Keybinds", "K", parent);
+    connect(keybindsBtn, &QPushButton::clicked, this, [this, close]() { close(); showKeybindsPanel(); });
+    layout->addWidget(keybindsBtn);
+
     // About
     auto *aboutBtn = makeMenuButton("About LMAO", "F1", parent);
     connect(aboutBtn, &QPushButton::clicked, this, [this, close]() { close(); showAboutDialog(); });
@@ -787,14 +818,17 @@ void PlayerWindow::buildMenuItems(QVBoxLayout *layout, QWidget *parent, bool fro
 
 // --- Popup helpers ---
 
-void PlayerWindow::closePopup(QWidget *&popup, QPushButton *btn, const QString &tooltip) {
+void PlayerWindow::closePopup(QWidget *&popup, QWidget *btn, const QString &tooltip) {
     if (!popup) return;
     popup->hide();
     popup->deleteLater();
     popup = nullptr;
     if (btn) {
         btn->setStyleSheet("");
-        if (!tooltip.isEmpty()) btn->setToolTip(tooltip);
+        if (!tooltip.isEmpty()) {
+            if (auto *pb = qobject_cast<QPushButton*>(btn)) pb->setToolTip(tooltip);
+            if (auto *gb = qobject_cast<GlassButton*>(btn)) gb->setToolTip(tooltip);
+        }
     }
 }
 
@@ -912,6 +946,421 @@ void PlayerWindow::updateInfoOverlay() {
     infoOverlay->adjustSize();
 }
 
+// --- Edit mode ---
+
+void PlayerWindow::toggleEditMode() {
+    if (!editMode && !controller->hasFFmpeg()) {
+        showNotification("Edit Mode requires FFmpeg");
+        return;
+    }
+    editMode = !editMode;
+    seekBar->setClampsVisible(editMode);
+
+    if (editMode) {
+        // Close any open popups
+        if (optionsPopup) { closePopup(optionsPopup, settingsBtn, "Options (O)"); }
+
+        // Restore or initialize clamp positions
+        if (savedClampIn >= 0 && savedClampOut > savedClampIn) {
+            seekBar->setClampIn(savedClampIn);
+            seekBar->setClampOut(savedClampOut);
+        } else {
+            seekBar->setClampIn(0);
+            seekBar->setClampOut(seekBar->maximum());
+        }
+        showControls();
+    } else {
+        // Save clamp positions
+        savedClampIn = seekBar->clampIn();
+        savedClampOut = seekBar->clampOut();
+    }
+
+    updateEditModeUI();
+
+    // Reposition audio popup if open (mic button moved)
+    if (audioPopup) {
+        QMetaObject::invokeMethod(this, [this]() {
+            if (!audioPopup) return;
+            QPoint btnCenter = audioTrackBtn->mapTo(this, QPoint(audioTrackBtn->width() / 2, 0));
+            int popupX = btnCenter.x() - audioPopup->width() / 2;
+            int popupY = controlsBar->y() - audioPopup->height() - Theme::popupGap;
+            int maxX = controlsBar->x() + controlsBar->width() - audioPopup->width();
+            popupX = qBound(controlsBar->x(), popupX, maxX);
+            audioPopup->move(popupX, popupY);
+            audioPopup->raise();
+        }, Qt::QueuedConnection);
+    }
+
+    showNotification(editMode ? "Edit Mode: ON" : "Edit Mode: OFF");
+}
+
+void PlayerWindow::updateEditModeUI() {
+    if (editMode) {
+        timeLabel->hide();
+        settingsBtn->hide();
+        editBtn->hide();
+        cancelEditBtn->show();
+        exportBtn->show();
+
+        // Edit mode border
+        if (!editBorder) {
+            editBorder = new QWidget(this);
+            editBorder->setStyleSheet(QString(
+                "background: transparent;"
+                "border: 2px solid rgba(%1, %2, %3, 1.0);"
+            ).arg(Theme::accentR).arg(Theme::accentG).arg(Theme::accentB));
+            editBorder->setAttribute(Qt::WA_TransparentForMouseEvents);
+            editBorder->setGeometry(0, 0, width(), height());
+            editBorder->show();
+            editBorder->raise();
+        }
+    } else {
+        timeLabel->show();
+        settingsBtn->show();
+        editBtn->show();
+        cancelEditBtn->hide();
+        exportBtn->hide();
+
+        if (editBorder) {
+            editBorder->deleteLater();
+            editBorder = nullptr;
+        }
+    }
+
+    updateResponsiveLayout();
+}
+
+
+// --- Export ---
+
+void PlayerWindow::exportClip() {
+    if (!editMode) return;
+    if (exportProcess) return;  // Already exporting
+
+    QString inputPath = controller->currentFilePath();
+    if (inputPath.isEmpty()) {
+        showNotification("No file loaded");
+        return;
+    }
+
+    if (!controller->hasFFmpeg()) {
+        showNotification("FFmpeg not found - cannot export");
+        return;
+    }
+
+    double startTime = seekBar->clampIn() / 10.0;
+    double endTime = seekBar->clampOut() / 10.0;
+
+    if (endTime <= startTime) {
+        showNotification("Invalid trim range");
+        return;
+    }
+
+    QFileInfo fi(inputPath);
+    QString defaultName = QString("%1/%2_trimmed.%3")
+        .arg(fi.absolutePath(), fi.completeBaseName(), fi.suffix());
+
+    // Save dialog
+    QString outputPath;
+#ifdef __linux__
+    QString desktop = qgetenv("XDG_CURRENT_DESKTOP").toLower();
+    if (desktop.contains("kde") || desktop.contains("plasma")) {
+        QProcess proc;
+        proc.start("kdialog", {
+            "--getsavefilename", defaultName,
+            QString("Media Files (*.%1)").arg(fi.suffix())
+        });
+        proc.waitForFinished(-1);
+        if (proc.exitCode() == 0)
+            outputPath = proc.readAllStandardOutput().trimmed();
+    } else {
+#endif
+        outputPath = QFileDialog::getSaveFileName(this, "Export Clip",
+            defaultName,
+            QString("Media files (*.%1);;All files (*)").arg(fi.suffix()));
+#ifdef __linux__
+    }
+#endif
+
+    if (outputPath.isEmpty()) return;
+
+    // Pause playback
+    exportWasPaused = controller->isPaused();
+    if (!exportWasPaused) controller->togglePause();
+
+    // --- Build export overlay ---
+
+    // Dimmer: semi-transparent black covering the whole window
+    exportDimmer = new QWidget(this);
+    exportDimmer->setStyleSheet("background: rgba(0, 0, 0, 150);");
+    exportDimmer->setGeometry(0, 0, width(), height());
+    exportDimmer->show();
+    exportDimmer->raise();
+
+    // Glass panel centered on screen
+    exportOverlay = new GlassPanel(this);
+    exportOverlay->setRadius(Theme::popupRadius);
+    exportOverlay->setBackgroundColor(Theme::popupBg);
+    exportOverlay->setHighlightStrength(Theme::highlight);
+
+    auto *layout = new QVBoxLayout(exportOverlay);
+    layout->setContentsMargins(24, 20, 24, 20);
+    layout->setSpacing(12);
+
+    // Status label
+    exportStatusLabel = new QLabel("Exporting...", exportOverlay);
+    exportStatusLabel->setStyleSheet(QString("color: %1; font-size: 14px; font-weight: bold; background: transparent;").arg(Theme::textPrimary));
+    exportStatusLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(exportStatusLabel);
+
+    // Filename label
+    QFileInfo outInfo(outputPath);
+    auto *fileLabel = new QLabel(outInfo.fileName(), exportOverlay);
+    fileLabel->setStyleSheet(QString("color: %1; font-size: 11px; background: transparent;").arg(Theme::textDim));
+    fileLabel->setAlignment(Qt::AlignCenter);
+    layout->addWidget(fileLabel);
+
+    // Progress bar (reuse CustomSlider as a visual bar)
+    exportProgressBar = new CustomSlider(Qt::Horizontal, exportOverlay);
+    exportProgressBar->setMinimum(0);
+    exportProgressBar->setMaximum(100);
+    exportProgressBar->setValue(0);
+    exportProgressBar->setFixedHeight(12);
+    exportProgressBar->setGrooveHeight(8);
+    exportProgressBar->setHandleSize(0);
+    exportProgressBar->setRadius(4);
+    exportProgressBar->setFillColor(QColor(Theme::accent));
+    exportProgressBar->setEnabled(false);
+    exportProgressBar->setCursor(Qt::ArrowCursor);
+    layout->addWidget(exportProgressBar);
+
+    // Cancel button
+    auto *cancelBtn = new GlassButton("Cancel", exportOverlay);
+    cancelBtn->setTextColor(QColor(Theme::textPrimary));
+    cancelBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    connect(cancelBtn, &GlassButton::clicked, this, &PlayerWindow::cancelExport);
+    layout->addWidget(cancelBtn);
+
+    exportOverlay->setFixedWidth(320);
+    exportOverlay->adjustSize();
+    exportOverlay->move((width() - exportOverlay->width()) / 2,
+                        (height() - exportOverlay->height()) / 2);
+    exportOverlay->raise();
+    exportOverlay->show();
+
+    // --- Start ffmpeg ---
+
+    QStringList args;
+    args << "-y"
+         << "-ss" << QString::number(qMax(0.0, startTime - 5.0), 'f', 3)  // fast seek to ~5s before
+         << "-i" << inputPath
+         << "-ss" << QString::number(qMin(5.0, startTime), 'f', 3)        // precise offset from there
+         << "-t" << QString::number(endTime - startTime, 'f', 3)          // duration instead of -to
+         << "-map" << "0"
+         << "-c:v" << "libx264" << "-preset" << "fast" << "-crf" << "18"
+         << "-c:a" << "copy"
+         << outputPath;
+
+    exportProcess = new QProcess(this);
+
+    // Parse progress
+    connect(exportProcess, &QProcess::readyReadStandardError, this, [this, startTime, endTime]() {
+        QString output = exportProcess->readAllStandardError();
+        static QRegularExpression timeRx(R"(time=(\d+):(\d+):(\d+)\.(\d+))");
+        auto match = timeRx.match(output);
+        if (match.hasMatch()) {
+            double currentTime = match.captured(1).toInt() * 3600
+                               + match.captured(2).toInt() * 60
+                               + match.captured(3).toInt()
+                               + match.captured(4).toDouble() / 100.0;
+            double duration = endTime - startTime;
+            int percent = qBound(0, (int)(currentTime / duration * 100), 100);
+            if (exportProgressBar) exportProgressBar->setValue(percent);
+            if (exportStatusLabel) exportStatusLabel->setText(QString("Exporting... %1%").arg(percent));
+        }
+    });
+
+    // Handle completion
+    connect(exportProcess, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished),
+        this, [this, outputPath](int exitCode, QProcess::ExitStatus) {
+            if (exitCode == 0) {
+                QFileInfo outInfo(outputPath);
+                double sizeMB = outInfo.size() / (1024.0 * 1024.0);
+                showNotification(QString("Exported: %1 (%2 MB)")
+                    .arg(outInfo.fileName())
+                    .arg(sizeMB, 0, 'f', 1));
+            } else {
+                showNotification("Export failed");
+            }
+            closeExportOverlay();
+        });
+
+    // Handle errors
+    connect(exportProcess, &QProcess::errorOccurred, this, [this](QProcess::ProcessError err) {
+        Q_UNUSED(err);
+        showNotification("Export failed - FFmpeg error");
+        closeExportOverlay();
+    });
+
+    exportProcess->start("ffmpeg", args);
+}
+
+void PlayerWindow::cancelExport() {
+    if (!exportProcess) return;
+
+    exportProcess->kill();
+    exportProcess->waitForFinished(3000);
+
+    showNotification("Export cancelled");
+    closeExportOverlay();
+}
+
+void PlayerWindow::closeExportOverlay() {
+    bool shouldResume = !exportWasPaused;
+
+    if (exportProcess) {
+        // Disconnect all signals first to prevent callbacks during cleanup
+        exportProcess->disconnect();
+        if (exportProcess->state() != QProcess::NotRunning) {
+            exportProcess->kill();
+            exportProcess->waitForFinished(3000);
+        }
+        exportProcess->deleteLater();
+        exportProcess = nullptr;
+    }
+
+    exportStatusLabel = nullptr;
+    exportProgressBar = nullptr;
+
+    if (exportOverlay) {
+        exportOverlay->hide();
+        exportOverlay->deleteLater();
+        exportOverlay = nullptr;
+    }
+
+    if (exportDimmer) {
+        exportDimmer->hide();
+        exportDimmer->deleteLater();
+        exportDimmer = nullptr;
+    }
+
+    // Resume playback last, after everything is cleaned up
+    if (shouldResume) controller->togglePause();
+}
+
+// --- Keybinds panel ---
+
+void PlayerWindow::showKeybindsPanel() {
+    if (keybindsPanel) { keybindsPanel->raise(); return; }
+
+    auto *glass = new GlassPanel(this);
+    glass->setRadius(Theme::popupRadius);
+    glass->setBackgroundColor(Theme::popupBg);
+    glass->setHighlightStrength(Theme::highlight);
+    keybindsPanel = glass;
+
+    auto *outerLayout = new QVBoxLayout(glass);
+    outerLayout->setContentsMargins(24, 16, 24, 16);
+    outerLayout->setSpacing(4);
+
+    auto *title = new QLabel("Keybinds", glass);
+    title->setStyleSheet(QString("color: %1; font-size: 16px; font-weight: bold; background: transparent;").arg(Theme::accent));
+    title->setAlignment(Qt::AlignCenter);
+    outerLayout->addWidget(title);
+    outerLayout->addSpacing(4);
+
+    // Two columns
+    auto *columns = new QWidget(glass);
+    auto *colLayout = new QHBoxLayout(columns);
+    colLayout->setContentsMargins(0, 0, 0, 0);
+    colLayout->setSpacing(24);
+
+    auto *leftCol = new QVBoxLayout();
+    leftCol->setSpacing(3);
+    auto *rightCol = new QVBoxLayout();
+    rightCol->setSpacing(3);
+
+    auto addKey = [&](QVBoxLayout *col, const QString &key, const QString &desc) {
+        auto *row = new QWidget(glass);
+        auto *rowLayout = new QHBoxLayout(row);
+        rowLayout->setContentsMargins(0, 2, 0, 2);
+        rowLayout->setSpacing(12);
+
+        auto *keyLabel = new QLabel(key, row);
+        keyLabel->setStyleSheet(QString(
+            "color: %1; font-size: 13px; font-weight: bold; font-family: monospace;"
+            "background: transparent; min-width: 70px;"
+        ).arg(Theme::accent));
+        keyLabel->setAlignment(Qt::AlignRight | Qt::AlignVCenter);
+
+        auto *descLabel = new QLabel(desc, row);
+        descLabel->setStyleSheet(QString("color: %1; font-size: 13px; background: transparent;").arg(Theme::textPrimary));
+
+        rowLayout->addWidget(keyLabel);
+        rowLayout->addWidget(descLabel, 1);
+        col->addWidget(row);
+    };
+
+    auto addSection = [&](QVBoxLayout *col, const QString &name) {
+        col->addSpacing(6);
+        auto *label = new QLabel(name, glass);
+        label->setStyleSheet(QString("color: %1; font-size: 11px; font-weight: bold; background: transparent;").arg(Theme::textDim));
+        col->addWidget(label);
+    };
+
+    // Left column
+    addSection(leftCol, "PLAYBACK");
+    addKey(leftCol, "Space", "Play / Pause");
+    addKey(leftCol, "◀ ▶", "Skip 5 seconds");
+    addKey(leftCol, ". ,", "Frame step forward / back");
+    addKey(leftCol, "L", "Toggle loop");
+    addKey(leftCol, "+ -", "Speed up / down");
+
+    addSection(leftCol, "AUDIO & VIDEO");
+    addKey(leftCol, "M", "Mute / Unmute");
+    addKey(leftCol, "▲ ▼", "Volume up / down");
+    addKey(leftCol, "Scroll", "Volume up / down");
+    addKey(leftCol, "F", "Toggle fullscreen");
+    addKey(leftCol, "S", "Copy frame to clipboard");
+
+    // Right column
+    addSection(rightCol, "EDIT MODE");
+    addKey(rightCol, "E", "Enter / exit edit mode");
+    addKey(rightCol, "I", "Set in point");
+    addKey(rightCol, "O", "Set out point");
+    addKey(rightCol, "Esc", "Exit edit mode");
+
+    addSection(rightCol, "GENERAL");
+    addKey(rightCol, "Ctrl + O", "Open file");
+    addKey(rightCol, "O", "Options panel");
+    addKey(rightCol, "I", "File info overlay");
+    addKey(rightCol, "K", "Keybinds panel");
+    addKey(rightCol, "F1", "About");
+
+    leftCol->addStretch();
+    rightCol->addStretch();
+
+    colLayout->addLayout(leftCol);
+    colLayout->addLayout(rightCol);
+    outerLayout->addWidget(columns);
+
+    outerLayout->addSpacing(8);
+
+    auto *closeBtn = new GlassButton("Close", glass);
+    closeBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
+    connect(closeBtn, &GlassButton::clicked, this, [this]() {
+        keybindsPanel->close();
+        delete keybindsPanel;
+        keybindsPanel = nullptr;
+    });
+    outerLayout->addWidget(closeBtn);
+
+    glass->adjustSize();
+    glass->move((width() - glass->width()) / 2, (height() - glass->height()) / 2);
+    glass->raise();
+    glass->show();
+}
+
 // --- About dialog ---
 
 void PlayerWindow::showAboutDialog() {
@@ -950,26 +1399,21 @@ void PlayerWindow::showAboutDialog() {
     techInfo->setAlignment(Qt::AlignCenter);
     layout->addWidget(techInfo);
 
-    auto *githubBtn = new QPushButton("GitHub ↗", glass);
+    auto *githubBtn = new GlassButton("GitHub ↗", glass);
     githubBtn->setCursor(Qt::PointingHandCursor);
+    githubBtn->setTextColor(Theme::accent);
     githubBtn->setFocusPolicy(Qt::NoFocus);
     githubBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    githubBtn->setStyleSheet(QString(
-        "color: %1; background: %2; border: none; border-radius: 10px; padding: 6px 16px; font-size: 12px;"
-    ).arg(Theme::accent, Theme::btnHoverBg));
-    connect(githubBtn, &QPushButton::clicked, this, []() {
+    connect(githubBtn, &GlassButton::clicked, this, []() {
         QDesktopServices::openUrl(QUrl("https://github.com/ElekKartofelek/LMAO"));
     });
     layout->addWidget(githubBtn);
 
-    auto *closeBtn = new QPushButton("Close", glass);
+    auto *closeBtn = new GlassButton("Close", glass);
     closeBtn->setCursor(Qt::PointingHandCursor);
     closeBtn->setFocusPolicy(Qt::NoFocus);
     closeBtn->setSizePolicy(QSizePolicy::Expanding, QSizePolicy::Fixed);
-    closeBtn->setStyleSheet(QString(
-        "color: %1; background: %2; border: none; border-radius: 10px; padding: 6px 16px; font-size: 12px;"
-    ).arg(Theme::textPrimary, Theme::btnHoverBg));
-    connect(closeBtn, &QPushButton::clicked, this, [this]() {
+    connect(closeBtn, &GlassButton::clicked, this, [this]() {
         aboutPanel->close();
         delete aboutPanel;
         aboutPanel = nullptr;
@@ -996,8 +1440,12 @@ void PlayerWindow::resizeEvent(QResizeEvent *event) {
 
     // Reposition popups
     if (audioPopup) {
-        audioPopup->move(controlsBar->x() + controlsBar->width() - audioPopup->width(),
-                         controlsBar->y() - audioPopup->height() - Theme::popupGap);
+        int popupY = controlsBar->y() - audioPopup->height() - Theme::popupGap;
+        QPoint btnCenter = audioTrackBtn->mapTo(this, QPoint(audioTrackBtn->width() / 2, 0));
+        int popupX = btnCenter.x() - audioPopup->width() / 2;
+        int maxX = controlsBar->x() + controlsBar->width() - audioPopup->width();
+        popupX = qBound(controlsBar->x(), popupX, maxX);
+        audioPopup->move(popupX, popupY);
         audioPopup->raise();
     }
     if (optionsPopup) {
@@ -1016,6 +1464,27 @@ void PlayerWindow::resizeEvent(QResizeEvent *event) {
         aboutPanel->move((width() - aboutPanel->width()) / 2, (height() - aboutPanel->height()) / 2);
         aboutPanel->raise();
     }
+    if (exportDimmer) {
+        exportDimmer->setGeometry(0, 0, width(), height());
+        exportDimmer->raise();
+    }
+    if (exportOverlay) {
+        exportOverlay->move((width() - exportOverlay->width()) / 2,
+                            (height() - exportOverlay->height()) / 2);
+        exportOverlay->raise();
+    }
+
+    if (editBorder) {
+        editBorder->setGeometry(0, 0, width(), height());
+        editBorder->raise();
+    }
+
+    if (keybindsPanel) {
+        keybindsPanel->move((width() - keybindsPanel->width()) / 2, (height() - keybindsPanel->height()) / 2);
+        keybindsPanel->raise();
+    }
+
+    updateResponsiveLayout();
 }
 
 // --- Formatting ---
@@ -1036,6 +1505,9 @@ QString PlayerWindow::formatTime(double seconds, double total) {
 
 bool PlayerWindow::eventFilter(QObject *obj, QEvent *event) {
     if (obj == mpvWidget) {
+        // Block all interaction during export
+        if (exportProcess) return true;
+
         switch (event->type()) {
         case QEvent::Wheel: {
             auto *we = static_cast<QWheelEvent *>(event);
@@ -1051,7 +1523,7 @@ bool PlayerWindow::eventFilter(QObject *obj, QEvent *event) {
             auto *me = static_cast<QMouseEvent *>(event);
             // Close context popup on click
             if (contextPopup) { contextPopup->close(); delete contextPopup; contextPopup = nullptr; return true; }
-            // Single click → pause (with double-click protection)
+            // Single click - pause (with double-click protection)
             if (me->button() == Qt::LeftButton) {
                 pauseStateBeforeClick = controller->isPaused();
                 controller->togglePause();
@@ -1099,16 +1571,31 @@ bool PlayerWindow::eventFilter(QObject *obj, QEvent *event) {
 }
 
 void PlayerWindow::keyPressEvent(QKeyEvent *event) {
+    // During export, only allow Escape to cancel
+    if (exportProcess) {
+        if (event->key() == Qt::Key_Escape)
+            cancelExport();
+        return;
+    }
+
     showControls();
     hideTimer->start();
 
     switch (event->key()) {
     case Qt::Key_Space:  controller->togglePause(); break;
-    case Qt::Key_Right:  controller->seekRelative(5); showNotification("Skip 5s ►"); break;
-    case Qt::Key_Left:   controller->seekRelative(-5); showNotification("◄ Skip 5s"); break;
     case Qt::Key_Up:     controller->adjustVolume(5); break;
     case Qt::Key_Down:   controller->adjustVolume(-5); break;
     case Qt::Key_F:      toggleFullscreen(); break;
+    case Qt::Key_Right:
+        controller->seekRelative(5);
+        clampSeekToEditRegion();
+        showNotification("Skip 5s ►");
+        break;
+    case Qt::Key_Left:
+        controller->seekRelative(-5);
+        clampSeekToEditRegion();
+        showNotification("◄ Skip 5s");
+        break;
     case Qt::Key_S: {
         bool ok = controller->copyFrameToClipboard();
         showNotification(ok ? "Frame copied to clipboard" : "Screenshot failed");
@@ -1117,21 +1604,20 @@ void PlayerWindow::keyPressEvent(QKeyEvent *event) {
     case Qt::Key_Period:
         frameStepping = true;
         controller->frameStepForward();
+        clampSeekToEditRegion();
         showNotification("Next Frame ►");
         QTimer::singleShot(100, this, [this]() { frameStepping = false; });
         break;
     case Qt::Key_Comma:
         frameStepping = true;
         controller->frameStepBackward();
+        clampSeekToEditRegion();
         showNotification("◄ Previous Frame");
         QTimer::singleShot(100, this, [this]() { frameStepping = false; });
         break;
     case Qt::Key_Escape:
-        if (isFullScreen()) showNormal();
-        break;
-    case Qt::Key_O:
-        if (event->modifiers() & Qt::ControlModifier) promptOpenFile();
-        else toggleOptionsPopup();
+        if (editMode) toggleEditMode();
+        else if (isFullScreen()) showNormal();
         break;
     case Qt::Key_M:
         if (controller->volume() > 0) { lastVolume = controller->volume(); controller->setVolume(0); }
@@ -1151,12 +1637,38 @@ void PlayerWindow::keyPressEvent(QKeyEvent *event) {
         setPlaybackSpeed(qMin(4.0, currentSpeed + 0.25));
         refreshOptionsPopup();
         break;
-    case Qt::Key_I:
-        toggleInfoOverlay();
-        refreshOptionsPopup();
-        break;
     case Qt::Key_F1:
-        showAboutDialog();
+        if (aboutPanel) {
+            aboutPanel->close();
+            delete aboutPanel;
+            aboutPanel = nullptr;
+        } else { showAboutDialog(); }
+        break;
+    case Qt::Key_E:
+        toggleEditMode();
+        break;
+    case Qt::Key_O:
+        if (editMode) {
+            seekBar->setClampOut(seekBar->value());
+            showNotification(QString("Out: %1").arg(formatTime(seekBar->clampOut() / 10.0)));
+        } else if (event->modifiers() & Qt::ControlModifier) { promptOpenFile();
+        } else { toggleOptionsPopup(); }
+        break;
+    case Qt::Key_I:
+        if (editMode) {
+            seekBar->setClampIn(seekBar->value());
+            showNotification(QString("In: %1").arg(formatTime(seekBar->clampIn() / 10.0)));
+        } else {
+            toggleInfoOverlay();
+            refreshOptionsPopup();
+        }
+        break;
+    case Qt::Key_K:
+        if (keybindsPanel) {
+            keybindsPanel->close();
+            delete keybindsPanel;
+            keybindsPanel = nullptr;
+        } else { showKeybindsPanel(); }
         break;
     default:
         QMainWindow::keyPressEvent(event);
@@ -1182,4 +1694,40 @@ void PlayerWindow::dropEvent(QDropEvent *event) {
 
 void PlayerWindow::contextMenuEvent(QContextMenuEvent *event) {
     showContextPopup(event->globalPos());
+}
+
+void PlayerWindow::clampSeekToEditRegion() {
+    if (!editMode) return;
+    double pos = seekBar->value() / 10.0;
+    double clampIn = seekBar->clampIn() / 10.0;
+    double clampOut = seekBar->clampOut() / 10.0;
+    if (pos < clampIn)
+        controller->seekTo(clampIn);
+    else if (pos > clampOut)
+        controller->seekTo(clampOut);
+}
+
+void PlayerWindow::updateResponsiveLayout() {
+    bool narrow = controlsBar->width() < 550;
+
+    if (editMode) {
+        muteBtn->setVisible(!narrow);
+        volumeSlider->setVisible(!narrow);
+        audioTrackBtn->setVisible(!narrow);
+    } else {
+        timeLabel->setVisible(!narrow);
+        audioTrackBtn->setVisible(!narrow);
+        editBtn->setVisible(!narrow);
+        settingsBtn->setVisible(!narrow);
+        
+        // Add right side padding after volume slider when it's the last visible element
+        auto *layout = qobject_cast<QHBoxLayout*>(controlsBar->layout());
+        if (layout) layout->setContentsMargins(6, 6, narrow ? 14 : 6, 6);
+    }
+
+    if (narrow && audioPopup) {
+        audioPopup->close();
+        audioPopup->deleteLater();
+        audioPopup = nullptr;
+    }
 }

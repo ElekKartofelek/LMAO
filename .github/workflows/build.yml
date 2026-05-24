@@ -160,12 +160,12 @@ jobs:
 
       - uses: actions/upload-artifact@v5
         with:
-          name: lmao-windows-x86_64
+          name: lmao-windows-lite
           path: package/LMAO/
 
       - uses: actions/upload-artifact@v5
         with:
-          name: lmao-windows-x86_64-full
+          name: lmao-windows-full
           path: package/LMAO-full/
 
   # --- Create release (only on tags) ---
@@ -188,25 +188,25 @@ jobs:
       
       - uses: actions/download-artifact@v5
         with:
-          name: lmao-windows-x86_64
-          path: artifacts/lmao-windows/
+          name: lmao-windows-lite
+          path: artifacts/lmao-windows-lite/
 
       - uses: actions/download-artifact@v5
         with:
-          name: lmao-windows-x86_64-full
+          name: lmao-windows-full
           path: artifacts/lmao-windows-full/
 
       - name: Package
         run: |
           # Linux tar
           tar czf artifacts/lmao-linux-x86_64.tar.gz -C artifacts lmao-linux
-          # Windows zip
-          cd artifacts/lmao-windows
-          zip -r ../lmao-windows-x86_64.zip .
+          # Windows lite zip
+          cd artifacts/lmao-windows-lite
+          zip -r ../lmao-windows-lite.zip .
           cd ..
           # Windows full zip
           cd lmao-windows-full
-          zip -r ../lmao-windows-x86_64-full.zip .
+          zip -r ../lmao-windows-full.zip .
           cd ../..
 
       - name: Create Release
@@ -215,6 +215,6 @@ jobs:
           files: |
             artifacts/LMAO-x86_64.AppImage
             artifacts/lmao-linux-x86_64.tar.gz
-            artifacts/lmao-windows-x86_64.zip
-            artifacts/lmao-windows-x86_64-full.zip
+            artifacts/lmao-windows-lite.zip
+            artifacts/lmao-windows-full.zip
           generate_release_notes: false

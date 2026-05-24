@@ -34,7 +34,7 @@ MpvWidget::MpvWidget(QWidget *parent)
     // Use libmpv's own rendering (no wid, no separate window)
     mpv_set_option_string(mpv, "vo", "libmpv");
 
-    // Disable mpv's own input handling — we do it ourselves
+    // Disable mpv's own input handling
     mpv_set_option_string(mpv, "input-default-bindings", "no");
     mpv_set_option_string(mpv, "input-vo-keyboard", "no");
     mpv_set_option_string(mpv, "osc", "no");
@@ -105,8 +105,8 @@ void MpvWidget::paintGL() {
 }
 
 void MpvWidget::maybeUpdate() {
-    // Handle minimized window — Qt skips update() when not visible,
-    // which confuses mpv's render API and causes freezes.
+    // Handle minimized window
+    // Qt skips update() when not visible, which confuses mpv's render API and causes freezes.
     if (window()->isMinimized()) {
         makeCurrent();
         paintGL();

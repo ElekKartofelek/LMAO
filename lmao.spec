@@ -1,5 +1,5 @@
 Name:           lmao
-Version:        1.0.0
+Version:        1.1.0
 Release:        1%{?dist}
 Summary:        Lightweight Multimedia & Audio Opener
 License:        GPL-2.0-or-later
@@ -19,8 +19,9 @@ Requires:       mpv-libs
 Recommends:     ffmpeg-free
 
 %description
-A minimal, media player built with **Qt6** and **libmpv**.
-Yes, another one. LMAO 🤣
+A minimal, media player with video trimming capability built with Qt6 and libmpv.
+Yeah, another player nobody asked for.
+Created mainly for my own peace of mind but I hope it might be of use to some of you as well <3
 
 %prep
 %autosetup -n LMAO-%{version}
@@ -47,5 +48,11 @@ Yes, another one. LMAO 🤣
 %{_datadir}/icons/hicolor/512x512/apps/dev.elek.LMAO.png
 
 %changelog
+* Sun May 25 2026 ElekKartofelek <elek@users.noreply.github.com> - 1.1.0-1
+- Edit Mode - trim and export (requires FFmpeg)
+- Glossy UI overhaul with directional lighting
+- Layout shows only the most important elements at small window width
+- Keybinds panel - view only, not reprogrammable (yet?)
+
 * Fri May 22 2026 ElekKartofelek <elek@users.noreply.github.com> - 1.0.0-1
 - Initial release

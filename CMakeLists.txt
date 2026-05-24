@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.16)
-project(LMAO VERSION 1.0.0 LANGUAGES CXX)
+project(LMAO VERSION 1.1.0 LANGUAGES CXX)
 add_definitions(-DAPP_VERSION="${PROJECT_VERSION}")
 
 set(CMAKE_CXX_STANDARD 17)
@@ -7,7 +7,7 @@ set(CMAKE_CXX_STANDARD_REQUIRED ON)
 set(CMAKE_AUTOMOC ON)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
-# DBus is Linux-only, use Network module on Windows for single-instance
+# DBus is Linux-only, use Network module on Windows for single instance
 if(UNIX AND NOT APPLE)
     find_package(Qt6 REQUIRED COMPONENTS Widgets OpenGLWidgets DBus)
     set(PLATFORM_LIBS Qt6::DBus)
@@ -46,6 +46,8 @@ add_executable(lmao
     src/widgets/customslider.cpp
     src/widgets/glasspanel.h
     src/widgets/glasspanel.cpp
+    src/widgets/glassbutton.h
+    src/widgets/glassbutton.cpp
     $<$<PLATFORM_ID:Windows>:src/app.rc>
 )
 
