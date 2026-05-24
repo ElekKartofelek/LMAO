@@ -57,6 +57,10 @@ MpvController::MpvController(MpvWidget *widget, QObject *parent)
     volumeLerpTimer = new QTimer(this);
     volumeLerpTimer->setInterval(16);  // ~ 60fps
     connect(volumeLerpTimer, &QTimer::timeout, this, [this]() {
+        if (isPaused()) {
+            volumeCurrent = volumeTarget;
+        }
+
         double diff = volumeTarget - volumeCurrent;
         if (qAbs(diff) < 0.3) {
             volumeCurrent = volumeTarget;
