@@ -47,6 +47,10 @@ MpvController::MpvController(MpvWidget *widget, QObject *parent)
     : QObject(parent), mpv(widget)
 {
     ffmpegAvailable = toolExists("ffmpeg");
+    printf("findTool: %s\n", findTool("ffmpeg").toUtf8().constData());
+    printf("exists: %d\n", QFile::exists(findTool("ffmpeg")));
+    printf("available: %d\n", ffmpegAvailable);
+    fflush(stdout);
     ffprobeAvailable = toolExists("ffprobe");
 
     connect(mpv, &MpvWidget::positionChanged, this, &MpvController::positionChanged);

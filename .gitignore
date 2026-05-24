@@ -53,3 +53,7 @@ Thumbs.db
 
 # Blender backup files
 .blend1 
+
+# AppImage
+AppDir/
+*.AppImage

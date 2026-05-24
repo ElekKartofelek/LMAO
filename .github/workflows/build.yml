@@ -30,24 +30,7 @@ jobs:
 
       - name: Create AppDir
         run: |
-          # Install into AppDir structure
           DESTDIR=$PWD/AppDir cmake --install build
-
-          # Create .desktop file in AppDir root
-          cp dev.elek.LMAO.desktop AppDir/
-
-          # Create icon in AppDir root
-          cp icons/hicolor/256x256/apps/dev.elek.LMAO.png AppDir/
-
-          # Create AppRun script
-          cat > AppDir/AppRun << 'EOF'
-          #!/bin/bash
-          HERE="$(dirname "$(readlink -f "$0")")"
-          export LD_LIBRARY_PATH="${HERE}/usr/lib:${LD_LIBRARY_PATH}"
-          export QT_PLUGIN_PATH="${HERE}/usr/lib/qt6/plugins"
-          exec "${HERE}/usr/bin/lmao" "$@"
-          EOF
-          chmod +x AppDir/AppRun
 
       - name: Download linuxdeploy
         run: |
